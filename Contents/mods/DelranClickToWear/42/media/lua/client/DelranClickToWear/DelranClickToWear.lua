@@ -5,10 +5,22 @@ local function dprint(...)
 end
 
 ---@param player IsoPlayer
----@param clothingItem IsoWorldInventoryObject
-function MoveToAndWear(player, clothingItem)
-  ISInventoryPaneContextMenu.transferIfNeeded(player, clothingItem);
-  ISTimedActionQueue.add(ISWearClothing:new(player, clothingItem:getItem()));
+---@param worldItem IsoWorldInventoryObject
+function MoveToAndWear(player, worldItem)
+  local clothingItem = worldItem:getItem();
+  if not clothingItem:IsClothing() then
+    dprint("Selected item is not a clothing item.");
+    return;
+  end
+
+  -- Move to object square and keep the TimedActionQueue.
+  luautils.walkAdj(player, worldItem:getSquare(), true);
+
+  -- Transfer the clothing item in the player inventory.
+  ISInventoryPaneContextMenu.transferItems({ clothingItem }, player:getInventory(), player:getIndex())
+
+  -- Wear the item.
+  ISTimedActionQueue.add(ISWearClothing:new(player, clothingItem));
 end
 
 ---@param playerNum number
