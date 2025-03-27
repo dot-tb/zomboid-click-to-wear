@@ -1,4 +1,5 @@
 name=Click To Wear
 id=DELRAN_CLICK_TO_WEAR
+modversion=1
 description=Right click to wear clothes on the ground
 poster=poster.png
