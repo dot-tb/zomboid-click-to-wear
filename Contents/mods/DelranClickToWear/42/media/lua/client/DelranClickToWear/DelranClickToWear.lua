@@ -8,28 +8,30 @@ end
 ---@type IsoWorldInventoryObject[]
 WORLD_OBJECTS_CACHE = {};
 
+---Is the passed InventoryItem a bag ?
+---@param item InventoryItem
+function IsBag(item)
+  -- Patchwork solution to filter InventoryItems that are bags.
+  return item:getType():match("^Bag_") ~= nil;
+end
+
 ---@param player IsoPlayer
 ---@param worldItem IsoWorldInventoryObject
 function MoveToAndWear(player, worldItem)
-  local clothingItem = worldItem:getItem();
-  if not clothingItem:IsClothing() and not clothingItem:IsInventoryContainer() then
-    dprint("Selected item is not a clothing item : ", clothingItem:getType(), " ", clothingItem:getName());
+  local wearableItem = worldItem:getItem();
+  if not wearableItem:IsClothing() and not wearableItem:IsInventoryContainer() then
+    dprint("Selected item is not wearable : ", wearableItem:getType(), " ", wearableItem:getName());
     return;
   end
-  -- Move to object square and keep the TimedActionQueue.
-  --luautils.walkAdj(player, worldItem:getSquare(), true);
 
-  dprint("Transfering item : ", clothingItem, " to player ", player:getIndex());
-  dprint("Clothing item container : ", clothingItem:getContainer());
-  ISWorldObjectContextMenu.onGrabWItem({}, worldItem, player:getIndex());
-  --ISTimedActionQueue.add(ISInventoryTransferAction:new(player, clothingItem, clothingItem:getContainer(),player:getInventory()));
-  --ISInventoryPaneContextMenu.onGrabItems({ clothingItem }, player:getIndex());
-  -- Transfer the clothing item in the player inventory.
-  --ISInventoryPaneContextMenu.transferItems({ clothingItem }, player:getInventory(), player:getIndex())
+  luautils.walkAdj(player, worldItem:getSquare(), true);
+  ISTimedActionQueue.add(ISInventoryTransferAction:new(player, wearableItem, wearableItem:getContainer(),
+    player:getInventory()));
+  --ISWorldObjectContextMenu.onGrabWItem({}, worldItem, player:getIndex());
 
-  dprint("Queueing wear clothing action : ", clothingItem:getName(), " on player ", player:getIndex());
+  dprint("Queueing wear clothing action : ", wearableItem:getName(), " on player ", player:getIndex());
   -- Wear the item.
-  ISTimedActionQueue.add(ISWearClothing:new(player, clothingItem));
+  ISTimedActionQueue.add(ISWearClothing:new(player, wearableItem));
 
   --[[
   local i = 0;
@@ -49,55 +51,72 @@ function MoveToAndWear(player, worldItem)
   ]]
 end
 
+---Draw the Wear context menu when right clicking on the world
 ---@param playerNum number
 ---@param context ISContextMenu
 ---@param worldObjects IsoObject[]
-function DrawWearOnClickMenu(playerNum, context, worldObjects)
+function DrawWearWorldItemMenu(playerNum, context, worldObjects)
+  -- If the game didn't found any items to grab, we don't bother going further.
+  if not context:getOptionFromName(getText("ContextMenu_Grab")) then
+    return
+  end
+
   local player = getSpecificPlayer(playerNum);
+
+  -- So you can't get the size of a Hashmap in lua ? Wtf is this.
+  local itemCount = 0;
+  ---Wearable items found to be added as an option in our submenu
   ---@type { [string]: IsoWorldInventoryObject }
   local clothingItems = {};
+  ---Hashmap that will contain items we already iterated over.
+  ---@type { [IsoWorldInventoryObject]: boolean }
+  local seenItems = {};
+
+  for _, cachedWorldObject in ipairs(WORLD_OBJECTS_CACHE) do
+    seenItems[cachedWorldObject] = true;
+    local cachedInventoryItem = cachedWorldObject:getItem();
+
+    -- Only proceed if the item is wearable.
+    if cachedInventoryItem:IsClothing() or IsBag(cachedInventoryItem) then
+      clothingItems[cachedInventoryItem:getName()] = cachedWorldObject;
+      itemCount = itemCount + 1;
+    end
+  end
+
   for _, worldObject in ipairs(worldObjects) do
+    -- Skip any object that is not an InventoryItem
     if instanceof(worldObject, "IsoWorldInventoryObject") then
       ---@type IsoWorldInventoryObject
       ---@diagnostic disable-next-line: assign-type-mismatch
       local worldInventoryItem = worldObject;
       local inventoryItem = worldInventoryItem:getItem();
-      dprint("DISPLAY MENY ITEM CONTAINER : ", inventoryItem:getContainer());
-      if inventoryItem:IsClothing() or inventoryItem:IsInventoryContainer() then
+
+      -- Only proceed if the item is wearable and was not seen in the world objects cache.
+      if not seenItems[worldInventoryItem] and (inventoryItem:IsClothing() or IsBag(inventoryItem)) then
         clothingItems[inventoryItem:getName()] = worldInventoryItem;
+        itemCount = itemCount + 1;
       end
     end
   end
 
-  ---@type { [string]: IsoWorldInventoryObject }
-  local cachedClothingWorldItem = {};
-  for _, cachedWorldObject in ipairs(WORLD_OBJECTS_CACHE) do
-    local cachedInventoryItem = cachedWorldObject:getItem();
-    if cachedInventoryItem:IsClothing() or cachedInventoryItem:IsInventoryContainer() then
-      cachedClothingWorldItem[cachedInventoryItem:getName()] = cachedWorldObject;
-    end
-  end
 
-  if not table.isempty(clothingItems) or not table.isempty(cachedClothingWorldItem) then
+  -- If no items were added to the werable items, stop here.
+  if itemCount == 0 then return end
+
+  if itemCount == 1 then
+    -- Can't I just get the first AND ONLY value of the table ? HOW
+    -- WTF IS THIS LANGAGUE
+    for itemName, uniqueClothingItem in pairs(clothingItems) do
+      context:insertOptionAfter(getText("ContextMenu_Grab"), "Wear " .. itemName, player, MoveToAndWear,
+        uniqueClothingItem);
+      break;
+    end
+  else
     ---@type ISContextMenu
     local subMenu = context:getNew(context);
+
     for itemName, clothingItem in pairs(clothingItems) do
       subMenu:addOption(itemName, player, MoveToAndWear, clothingItem);
-
-      -- Check the item is cached in our global variable, if it is, remove it from the cache
-      --   so that it doesn't appear twice in the menu.
-      for objectName, cachedObject in pairs(cachedClothingWorldItem) do
-        if clothingItem == cachedObject then
-          cachedClothingWorldItem[objectName] = nil;
-          break
-        end
-      end
-    end
-
-    -- Get the remaining items from the cache that weren't present in the worldObjects table
-    for _, cachedWorldObject in ipairs(cachedClothingWorldItem) do
-      local cachedInventoryItem = cachedWorldObject:getItem();
-      subMenu:addOption(cachedInventoryItem:getName(), player, MoveToAndWear, cachedWorldObject);
     end
 
     -- Insert the sub menu just after the Grab option.
@@ -106,7 +125,7 @@ function DrawWearOnClickMenu(playerNum, context, worldObjects)
   end
 end
 
-Events.OnFillWorldObjectContextMenu.Add(DrawWearOnClickMenu)
+Events.OnFillWorldObjectContextMenu.Add(DrawWearWorldItemMenu)
 
 if not ORIGINAL_FUNC then
   dprint("LOADING MODULE");
