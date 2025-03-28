@@ -30,6 +30,7 @@ description=[/list] [/code]
 description=
 description=
 description=[code][h1]Feedback :[/h1]
-Any feedback is welcome, I plan on trying new things and improving this mod, if you have any idea how to make it better, please share it.[/code]
+description=Any feedback is welcome, I plan on trying new things and improving this mod, if you have any idea how to make it better, please share it.[/code]
+description=
 tags=Build 42
 visibility=public
