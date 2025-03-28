@@ -25,9 +25,8 @@ function MoveToAndWear(player, worldItem)
   end
 
   luautils.walkAdj(player, worldItem:getSquare(), true);
-  ISTimedActionQueue.add(ISInventoryTransferAction:new(player, wearableItem, wearableItem:getContainer(),
-    player:getInventory()));
-  --ISWorldObjectContextMenu.onGrabWItem({}, worldItem, player:getIndex());
+  local time = ISWorldObjectContextMenu.grabItemTime(player, worldItem)
+  ISTimedActionQueue.add(ISGrabItemAction:new(player, worldItem, time))
 
   dprint("Queueing wear clothing action : ", wearableItem:getName(), " on player ", player:getIndex());
   -- Wear the item.
