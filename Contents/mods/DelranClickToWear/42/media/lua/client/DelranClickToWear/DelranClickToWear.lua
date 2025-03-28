@@ -12,7 +12,7 @@ WORLD_OBJECTS_CACHE = {};
 ---@param item InventoryItem
 function IsBag(item)
   -- Patchwork solution to filter InventoryItems that are bags.
-  return item:getType():match("^Bag_") ~= nil;
+  return item:IsInventoryContainer() and item:canBeEquipped() == "Back";
 end
 
 ---@param player IsoPlayer
@@ -49,6 +49,24 @@ function MoveToAndWear(player, worldItem)
 
   Events.OnTick.Add(OnTick);
   ]]
+end
+
+---comment
+---@param worldItem IsoWorldInventoryObject
+---@param player IsoPlayer
+---@param option any
+function DoWearClothingTooltip(worldItem, player, option)
+  local item = worldItem:getItem();
+
+  local itemOnPlayerBack = player:getClothingItem_Back();
+  if IsBag(item) and itemOnPlayerBack then
+    local tooltip = ISInventoryPaneContextMenu.addToolTip()
+    tooltip.description = getText("Tooltip_ReplaceWornItems") .. " <LINE> <INDENT:20> "
+    tooltip.description = tooltip.description .. itemOnPlayerBack:getDisplayName();
+    option.toolTip = tooltip
+  else
+    ISInventoryPaneContextMenu.doWearClothingTooltip(player, item, item, option);
+  end
 end
 
 ---Draw the Wear context menu when right clicking on the world
@@ -106,17 +124,19 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
   if itemCount == 1 then
     -- Can't I just get the first AND ONLY value of the table ? HOW
     -- WTF IS THIS LANGAGUE
-    for itemName, uniqueClothingItem in pairs(clothingItems) do
-      context:insertOptionAfter(getText("ContextMenu_Grab"), "Wear " .. itemName, player, MoveToAndWear,
-        uniqueClothingItem);
+    for itemName, uniqueWorldClothingItem in pairs(clothingItems) do
+      local option = context:insertOptionAfter(getText("ContextMenu_Grab"), "Wear " .. itemName, player, MoveToAndWear,
+        uniqueWorldClothingItem);
+      DoWearClothingTooltip(uniqueWorldClothingItem, player, option);
       break;
     end
   else
     ---@type ISContextMenu
     local subMenu = context:getNew(context);
 
-    for itemName, clothingItem in pairs(clothingItems) do
-      subMenu:addOption(itemName, player, MoveToAndWear, clothingItem);
+    for itemName, worldItem in pairs(clothingItems) do
+      local option = subMenu:addOption(itemName, player, MoveToAndWear, worldItem);
+      DoWearClothingTooltip(worldItem, player, option);
     end
 
     -- Insert the sub menu just after the Grab option.
