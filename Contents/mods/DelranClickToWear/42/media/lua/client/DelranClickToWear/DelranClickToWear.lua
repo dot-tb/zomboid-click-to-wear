@@ -50,6 +50,14 @@ function MoveToAndWear(player, worldItem)
   ]]
 end
 
+---@param player IsoPlayer
+---@param worldItems  { [IsoWorldInventoryObject]: string }
+function WearAll(player, worldItems)
+  for worldItem, _ in pairs(worldItems) do
+    MoveToAndWear(player, worldItem)
+  end
+end
+
 ---comment
 ---@param worldItem IsoWorldInventoryObject
 ---@param player IsoPlayer
@@ -83,19 +91,16 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
   -- So you can't get the size of a Hashmap in lua ? Wtf is this.
   local itemCount = 0;
   ---Wearable items found to be added as an option in our submenu
-  ---@type { [string]: IsoWorldInventoryObject }
+  ---@type { [IsoWorldInventoryObject]: string }
   local clothingItems = {};
   ---Hashmap that will contain items we already iterated over.
-  ---@type { [IsoWorldInventoryObject]: boolean }
-  local seenItems = {};
 
   for _, cachedWorldObject in ipairs(WORLD_OBJECTS_CACHE) do
-    seenItems[cachedWorldObject] = true;
     local cachedInventoryItem = cachedWorldObject:getItem();
 
     -- Only proceed if the item is wearable.
     if cachedInventoryItem:IsClothing() or IsBag(cachedInventoryItem) then
-      clothingItems[cachedInventoryItem:getName()] = cachedWorldObject;
+      clothingItems[cachedWorldObject] = cachedInventoryItem:getName();
       itemCount = itemCount + 1;
     end
   end
@@ -109,8 +114,8 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
       local inventoryItem = worldInventoryItem:getItem();
 
       -- Only proceed if the item is wearable and was not seen in the world objects cache.
-      if not seenItems[worldInventoryItem] and (inventoryItem:IsClothing() or IsBag(inventoryItem)) then
-        clothingItems[inventoryItem:getName()] = worldInventoryItem;
+      if not clothingItems[worldInventoryItem] and (inventoryItem:IsClothing() or IsBag(inventoryItem)) then
+        clothingItems[worldInventoryItem] = inventoryItem:getName();
         itemCount = itemCount + 1;
       end
     end
@@ -123,7 +128,7 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
   if itemCount == 1 then
     -- Can't I just get the first AND ONLY value of the table ? HOW
     -- WTF IS THIS LANGAGUE
-    for itemName, uniqueWorldClothingItem in pairs(clothingItems) do
+    for uniqueWorldClothingItem, itemName in pairs(clothingItems) do
       local option = context:insertOptionAfter(getText("ContextMenu_Grab"), "Wear " .. itemName, player, MoveToAndWear,
         uniqueWorldClothingItem);
       DoWearClothingTooltip(uniqueWorldClothingItem, player, option);
@@ -133,10 +138,15 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
     ---@type ISContextMenu
     local subMenu = context:getNew(context);
 
-    for itemName, worldItem in pairs(clothingItems) do
+    local wearAllOption = subMenu:addOption('Wear all', player, WearAll, clothingItems);
+    local wearAllOptionTooltip = ISInventoryPaneContextMenu.addToolTip();
+    for worldItem, itemName in pairs(clothingItems) do
       local option = subMenu:addOption(itemName, player, MoveToAndWear, worldItem);
       DoWearClothingTooltip(worldItem, player, option);
+      wearAllOptionTooltip.description = string.format("%s %s %s %s %s", wearAllOptionTooltip.description, "<TEXT>",
+        itemName, "<LINE>", option.toolTip.description);
     end
+    wearAllOption.toolTip = wearAllOptionTooltip;
 
     -- Insert the sub menu just after the Grab option.
     local subMenuOption = context:insertOptionAfter(getText("ContextMenu_Grab"), "Wear");
