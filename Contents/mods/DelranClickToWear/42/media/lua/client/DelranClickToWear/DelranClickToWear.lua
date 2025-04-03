@@ -6,7 +6,14 @@ end
 
 -- This global variable holds the cached world objects that were found by the game near a right click.
 ---@type IsoWorldInventoryObject[]
-WORLD_OBJECTS_CACHE = {};
+local WORLD_OBJECTS_CACHE = {};
+
+---@type { [InventoryItem] : InventoryItem[] }
+local REPLACED_ITEMS = {};
+
+---@type { [string] : boolean }
+local EQUIPPED_BODY_LOCATIONS = {};
+
 
 ---Is the passed InventoryItem a bag ?
 ---@param item InventoryItem
@@ -19,19 +26,43 @@ end
 ---@param worldItem IsoWorldInventoryObject
 function MoveToAndWear(player, worldItem)
   local wearableItem = worldItem:getItem();
+  local bodyLocation = wearableItem:getBodyLocation();
+
+  local locationGroup = player:getWornItems():getBodyLocationGroup();
+  if EQUIPPED_BODY_LOCATIONS[bodyLocation] then
+    dprint("Already replaced this bodylocation, canceling");
+    return;
+  else
+    for equippedBodyLocation, _ in pairs(EQUIPPED_BODY_LOCATIONS) do
+      if locationGroup:isExclusive(equippedBodyLocation, bodyLocation) then
+        dprint("Trying to equip multiple items with eclusives bodylocations, canceling");
+        return
+      end
+    end
+    EQUIPPED_BODY_LOCATIONS[bodyLocation] = true;
+  end
   if not wearableItem:IsClothing() and not wearableItem:IsInventoryContainer() then
     dprint("Selected item is not wearable : ", wearableItem:getType(), " ", wearableItem:getName());
     return;
   end
 
-  luautils.walkAdj(player, worldItem:getSquare(), true);
+  local square = worldItem:getSquare();
+  local offsetX, offsetY, offsetZ = worldItem:getOffX(), worldItem:getOffY(), worldItem:getOffZ()
+  local rotation = wearableItem:getWorldZRotation();
+  luautils.walkAdj(player, square, true);
   local time = ISWorldObjectContextMenu.grabItemTime(player, worldItem)
   ISTimedActionQueue.add(ISGrabItemAction:new(player, worldItem, time))
 
   dprint("Queueing wear clothing action : ", wearableItem:getName(), " on player ", player:getIndex());
   -- Wear the item.
   ISTimedActionQueue.add(ISWearClothing:new(player, wearableItem));
-
+  local replacingItems = REPLACED_ITEMS[worldItem:getItem()];
+  if replacingItems then
+    -- Only placing the first replaced item for now, the rest wil go to the inventory
+    local item = replacingItems[1];
+    ISTimedActionQueue.add(ISDropWorldItemAction:new(player, item, square, offsetX, offsetY, offsetZ,
+      rotation, false));
+  end
   --[[
   local i = 0;
   OnTick = function()
@@ -71,8 +102,15 @@ function DoWearClothingTooltip(worldItem, player, option)
     tooltip.description = getText("Tooltip_ReplaceWornItems") .. " <LINE> <INDENT:20> "
     tooltip.description = tooltip.description .. itemOnPlayerBack:getDisplayName();
     option.toolTip = tooltip
+    REPLACED_ITEMS[item] = { itemOnPlayerBack };
   else
-    ISInventoryPaneContextMenu.doWearClothingTooltip(player, item, item, option);
+    local replacingItems = ISInventoryPaneContextMenu.doWearClothingTooltip(player, item, item, option);
+    if replacingItems then
+      for _, replacedItem in ipairs(replacingItems) do
+        if not REPLACED_ITEMS[item] then REPLACED_ITEMS[item] = {} end;
+        table.insert(REPLACED_ITEMS[item], replacedItem);
+      end
+    end
   end
 end
 
@@ -81,6 +119,8 @@ end
 ---@param context ISContextMenu
 ---@param worldObjects IsoObject[]
 function DrawWearWorldItemMenu(playerNum, context, worldObjects)
+  REPLACED_ITEMS = {};
+  EQUIPPED_BODY_LOCATIONS = {};
   -- If the game didn't found any items to grab, we don't bother going further.
   if not context:getOptionFromName(getText("ContextMenu_Grab")) then
     return
@@ -143,8 +183,10 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
     for worldItem, itemName in pairs(clothingItems) do
       local option = subMenu:addOption(itemName, player, MoveToAndWear, worldItem);
       DoWearClothingTooltip(worldItem, player, option);
-      wearAllOptionTooltip.description = string.format("%s %s %s %s %s", wearAllOptionTooltip.description, "<TEXT>",
-        itemName, "<LINE>", option.toolTip.description);
+      if option.toolTip then
+        wearAllOptionTooltip.description = string.format("%s %s %s %s %s", wearAllOptionTooltip.description, "<TEXT>",
+          itemName, "<LINE>", option.toolTip.description);
+      end
     end
     wearAllOption.toolTip = wearAllOptionTooltip;
 
