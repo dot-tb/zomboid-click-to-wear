@@ -17,7 +17,7 @@ local EQUIPPED_BODY_LOCATIONS = {};
 
 ---Is the passed InventoryItem a bag ?
 ---@param item InventoryItem
-function IsBag(item)
+function IsBackpack(item)
   -- Patchwork solution to filter InventoryItems that are bags.
   return item:IsInventoryContainer() and item:canBeEquipped() == "Back";
 end
@@ -26,25 +26,38 @@ end
 ---@param worldItem IsoWorldInventoryObject
 function MoveToAndWear(player, worldItem)
   local wearableItem = worldItem:getItem();
-  local bodyLocation = wearableItem:getBodyLocation();
 
-  local locationGroup = player:getWornItems():getBodyLocationGroup();
-  if EQUIPPED_BODY_LOCATIONS[bodyLocation] then
-    dprint("Already replaced this bodylocation, canceling");
-    return;
-  else
-    for equippedBodyLocation, _ in pairs(EQUIPPED_BODY_LOCATIONS) do
-      if locationGroup:isExclusive(equippedBodyLocation, bodyLocation) then
-        dprint("Trying to equip multiple items with eclusives bodylocations, canceling");
-        return
-      end
-    end
-    EQUIPPED_BODY_LOCATIONS[bodyLocation] = true;
-  end
-  if not wearableItem:IsClothing() and not wearableItem:IsInventoryContainer() then
+  local IsBackpack = IsBackpack(wearableItem);
+  if not wearableItem:IsClothing() and not IsBackpack then
     dprint("Selected item is not wearable : ", wearableItem:getType(), " ", wearableItem:getName());
     return;
   end
+
+  if not IsBackpack then
+    local bodyLocation = wearableItem:getBodyLocation();
+
+    local locationGroup = player:getWornItems():getBodyLocationGroup();
+    if EQUIPPED_BODY_LOCATIONS[bodyLocation] then
+      dprint("Already replaced this bodylocation, canceling");
+      return;
+    else
+      for equippedBodyLocation, _ in pairs(EQUIPPED_BODY_LOCATIONS) do
+        if locationGroup:isExclusive(equippedBodyLocation, bodyLocation) then
+          dprint("Trying to equip multiple items with eclusives bodylocations, canceling");
+          return
+        end
+      end
+      EQUIPPED_BODY_LOCATIONS[bodyLocation] = true;
+    end
+  else
+    if not EQUIPPED_BODY_LOCATIONS["Backpack"] then
+      EQUIPPED_BODY_LOCATIONS["Backpack"] = true;
+    else
+      dprint("Already equipped a backpack");
+      return
+    end
+  end
+
 
   local square = worldItem:getSquare();
   local offsetX, offsetY, offsetZ = worldItem:getOffX(), worldItem:getOffY(), worldItem:getOffZ()
@@ -97,7 +110,7 @@ function DoWearClothingTooltip(worldItem, player, option)
   local item = worldItem:getItem();
 
   local itemOnPlayerBack = player:getClothingItem_Back();
-  if IsBag(item) and itemOnPlayerBack then
+  if IsBackpack(item) and itemOnPlayerBack then
     local tooltip = ISInventoryPaneContextMenu.addToolTip()
     tooltip.description = getText("Tooltip_ReplaceWornItems") .. " <LINE> <INDENT:20> "
     tooltip.description = tooltip.description .. itemOnPlayerBack:getDisplayName();
@@ -139,7 +152,7 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
     local cachedInventoryItem = cachedWorldObject:getItem();
 
     -- Only proceed if the item is wearable.
-    if cachedInventoryItem:IsClothing() or IsBag(cachedInventoryItem) then
+    if cachedInventoryItem:IsClothing() or IsBackpack(cachedInventoryItem) then
       clothingItems[cachedWorldObject] = cachedInventoryItem:getName();
       itemCount = itemCount + 1;
     end
@@ -154,7 +167,7 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
       local inventoryItem = worldInventoryItem:getItem();
 
       -- Only proceed if the item is wearable and was not seen in the world objects cache.
-      if not clothingItems[worldInventoryItem] and (inventoryItem:IsClothing() or IsBag(inventoryItem)) then
+      if not clothingItems[worldInventoryItem] and (inventoryItem:IsClothing() or IsBackpack(inventoryItem)) then
         clothingItems[worldInventoryItem] = inventoryItem:getName();
         itemCount = itemCount + 1;
       end
