@@ -2,3 +2,6 @@
 	path = tooling
 	url = https://github.com/dot-tb/zomboid-tooling.git
 	branch = main
+[submodule "Contents/mods/DelranClickToWear/42/media/lua/shared/DelranClickToWear/DelranLib"]
+	path = Contents/mods/DelranClickToWear/42/media/lua/shared/DelranClickToWear/DelranLib
+	url = https://github.com/dot-tb/zomboid-delran-lib.git
