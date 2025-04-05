@@ -4,6 +4,8 @@ local function dprint(...)
   end
 end
 
+local DelranUtils = require('DelranClickToWear/DelranLib/DelranUtils')
+local TileFinder = require('DelranClickToWear/DelranLib/DelranTileFinder')
 -- This global variable holds the cached world objects that were found by the game near a right click.
 ---@type IsoWorldInventoryObject[]
 local WORLD_OBJECTS_CACHE = {};
@@ -14,29 +16,13 @@ local REPLACED_ITEMS = {};
 ---@type { [string] : boolean }
 local EQUIPPED_BODY_LOCATIONS = {};
 
-function CanGrab(square, player)
-  square = luautils.getCorrectSquareForWall(player, square);
-  local diffX = math.abs(square:getX() + 0.5 - player:getX());
-  local diffY = math.abs(square:getY() + 0.5 - player:getY());
-  if diffX <= 1.6 and diffY <= 1.6 and player:getSquare():canReachTo(square) then
-    return true;
-  end
-  return false;
-end
-
----Is the passed InventoryItem a bag ?
----@param item InventoryItem
-function IsBackpack(item)
-  -- Patchwork solution to filter InventoryItems that are bags.
-  return item:IsInventoryContainer() and item:canBeEquipped() == "Back";
-end
-
 ---@param player IsoPlayer
 ---@param worldItem IsoWorldInventoryObject
 function MoveToAndWear(player, worldItem)
   local wearableItem = worldItem:getItem();
+  local tileFinder = TileFinder:New(player);
 
-  local IsBackpack = IsBackpack(wearableItem);
+  local IsBackpack = DelranUtils.IsBackpack(wearableItem);
   if not wearableItem:IsClothing() and not IsBackpack then
     dprint("Selected item is not wearable : ", wearableItem:getType(), " ", wearableItem:getName());
     return;
@@ -71,17 +57,9 @@ function MoveToAndWear(player, worldItem)
   local offsetX, offsetY, offsetZ = worldItem:getOffX(), worldItem:getOffY(), worldItem:getOffZ()
   local rotation = wearableItem:getWorldZRotation();
 
-  if not CanGrab(square, player) then
-    local exclude = {};
-    ---@type IsoGridSquare
-    local adjacent = AdjacentFreeTileFinder.Find(square, player);
-    local i = 0;
-    while not adjacent:isFree(false) do
-      table.insert(exclude, adjacent)
-      adjacent = AdjacentFreeTileFinder.Find(square, player, exclude);
-      if adjacent == nil then break end
-    end
-
+  if not tileFinder:IsNextToSquare(square) then
+    ---@type IsoGridSquare|nil
+    local adjacent = tileFinder:Find(square);
     if adjacent ~= nil then
       ISTimedActionQueue.add(ISWalkToTimedAction:new(player, adjacent));
     else
@@ -136,7 +114,7 @@ function DoWearClothingTooltip(worldItem, player, option)
   local item = worldItem:getItem();
 
   local itemOnPlayerBack = player:getClothingItem_Back();
-  if IsBackpack(item) and itemOnPlayerBack then
+  if DelranUtils.IsBackpack(item) and itemOnPlayerBack then
     local tooltip = ISInventoryPaneContextMenu.addToolTip()
     tooltip.description = getText("Tooltip_ReplaceWornItems") .. " <LINE> <INDENT:20> "
     tooltip.description = tooltip.description .. itemOnPlayerBack:getDisplayName();
@@ -178,7 +156,7 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
     local cachedInventoryItem = cachedWorldObject:getItem();
 
     -- Only proceed if the item is wearable.
-    if cachedInventoryItem:IsClothing() or IsBackpack(cachedInventoryItem) then
+    if cachedInventoryItem:IsClothing() or DelranUtils.IsBackpack(cachedInventoryItem) then
       clothingItems[cachedWorldObject] = cachedInventoryItem:getName();
       itemCount = itemCount + 1;
     end
@@ -193,7 +171,7 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
       local inventoryItem = worldInventoryItem:getItem();
 
       -- Only proceed if the item is wearable and was not seen in the world objects cache.
-      if not clothingItems[worldInventoryItem] and (inventoryItem:IsClothing() or IsBackpack(inventoryItem)) then
+      if not clothingItems[worldInventoryItem] and (inventoryItem:IsClothing() or DelranUtils.IsBackpack(inventoryItem)) then
         clothingItems[worldInventoryItem] = inventoryItem:getName();
         itemCount = itemCount + 1;
       end
