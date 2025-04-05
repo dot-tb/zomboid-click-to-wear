@@ -14,6 +14,15 @@ local REPLACED_ITEMS = {};
 ---@type { [string] : boolean }
 local EQUIPPED_BODY_LOCATIONS = {};
 
+function CanGrab(square, player)
+  square = luautils.getCorrectSquareForWall(player, square);
+  local diffX = math.abs(square:getX() + 0.5 - player:getX());
+  local diffY = math.abs(square:getY() + 0.5 - player:getY());
+  if diffX <= 1.6 and diffY <= 1.6 and player:getSquare():canReachTo(square) then
+    return true;
+  end
+  return false;
+end
 
 ---Is the passed InventoryItem a bag ?
 ---@param item InventoryItem
@@ -58,11 +67,28 @@ function MoveToAndWear(player, worldItem)
     end
   end
 
-
   local square = worldItem:getSquare();
   local offsetX, offsetY, offsetZ = worldItem:getOffX(), worldItem:getOffY(), worldItem:getOffZ()
   local rotation = wearableItem:getWorldZRotation();
-  luautils.walkAdj(player, square, true);
+
+  if not CanGrab(square, player) then
+    local exclude = {};
+    ---@type IsoGridSquare
+    local adjacent = AdjacentFreeTileFinder.Find(square, player);
+    local i = 0;
+    while not adjacent:isFree(false) do
+      table.insert(exclude, adjacent)
+      adjacent = AdjacentFreeTileFinder.Find(square, player, exclude);
+      if adjacent == nil then break end
+    end
+
+    if adjacent ~= nil then
+      ISTimedActionQueue.add(ISWalkToTimedAction:new(player, adjacent));
+    else
+      return
+    end
+  end
+
   local time = ISWorldObjectContextMenu.grabItemTime(player, worldItem)
   ISTimedActionQueue.add(ISGrabItemAction:new(player, worldItem, time))
 
