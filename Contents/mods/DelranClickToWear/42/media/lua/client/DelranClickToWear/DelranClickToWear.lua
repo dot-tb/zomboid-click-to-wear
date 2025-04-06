@@ -20,7 +20,7 @@ local EQUIPPED_BODY_LOCATIONS = {};
 ---@param worldItem IsoWorldInventoryObject
 function MoveToAndWear(player, worldItem)
   local wearableItem = worldItem:getItem();
-  local tileFinder = TileFinder:New(player);
+  local tileFinder = TileFinder:BuildForPlayer(player);
 
   local IsBackpack = DelranUtils.IsBackpack(wearableItem);
   if not wearableItem:IsClothing() and not IsBackpack then
