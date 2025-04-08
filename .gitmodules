@@ -1,3 +1,7 @@
 [submodule "Contents/mods/DelranClickToWear/42/media/lua/shared/DelranClickToWear/DelranLib"]
 	path = Contents/mods/DelranClickToWear/42/media/lua/shared/DelranClickToWear/DelranLib
 	url = https://github.com/dot-tb/zomboid-delran-lib.git
+[submodule "Contents/mods/DelranClickToWear/media/lua/shared/DelranClickToWear/DelranLib"]
+	path = Contents/mods/DelranClickToWear/media/lua/shared/DelranClickToWear/DelranLib
+	url = https://github.com/dot-tb/zomboid-delran-lib
+	branch = b41

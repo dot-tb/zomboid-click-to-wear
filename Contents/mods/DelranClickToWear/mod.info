@@ -5,4 +5,5 @@ author=Delran
 description=Right click to wear clothes on the ground
 poster=poster.png
 icon=poster.png
-versionMin=42.0.0
+versionMin=41.0.0
+versionMax=41.78.0
