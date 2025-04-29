@@ -15,6 +15,7 @@ local REPLACED_ITEMS = {};
 
 ---@type { [string] : boolean }
 local EQUIPPED_BODY_LOCATIONS = {};
+local EQUIPPED_A_BACKPACK = false;
 
 ---@param player IsoPlayer
 ---@param worldItem IsoWorldInventoryObject
@@ -45,8 +46,8 @@ function MoveToAndWear(player, worldItem)
       EQUIPPED_BODY_LOCATIONS[bodyLocation] = true;
     end
   else
-    if not EQUIPPED_BODY_LOCATIONS["Backpack"] then
-      EQUIPPED_BODY_LOCATIONS["Backpack"] = true;
+    if not EQUIPPED_A_BACKPACK then
+      EQUIPPED_A_BACKPACK = true;
     else
       dprint("Already equipped a backpack");
       return
@@ -138,6 +139,7 @@ end
 function DrawWearWorldItemMenu(playerNum, context, worldObjects)
   REPLACED_ITEMS = {};
   EQUIPPED_BODY_LOCATIONS = {};
+  EQUIPPED_A_BACKPACK = false;
   -- If the game didn't found any items to grab, we don't bother going further.
   if not context:getOptionFromName(getText("ContextMenu_Grab")) then
     return

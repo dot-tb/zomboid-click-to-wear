@@ -51,5 +51,5 @@ description=
 description=
 description=[code][h1]Feedback :[/h1]
 description=Any feedback is welcome, I plan on trying new things and improving this mod, if you have any idea how to make it better, please share it.[/code]
-tags=Build 42;Clothing/Armor;Misc;QoL
+tags=Build 41;Build 42;Clothing/Armor;Misc;QoL
 visibility=public
