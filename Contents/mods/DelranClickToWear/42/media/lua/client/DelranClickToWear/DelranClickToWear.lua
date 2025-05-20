@@ -152,6 +152,8 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
   ---Wearable items found to be added as an option in our submenu
   ---@type { [IsoWorldInventoryObject]: string }
   local clothingItems = {};
+  ---@type IsoWorldInventoryObject[]
+  local clothingWorldItems = table.newarray();
   ---Hashmap that will contain items we already iterated over.
 
   for _, cachedWorldObject in ipairs(WORLD_OBJECTS_CACHE) do
@@ -161,6 +163,7 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
     if cachedInventoryItem:IsClothing() or DelranUtils.IsBackpack(cachedInventoryItem) then
       clothingItems[cachedWorldObject] = cachedInventoryItem:getName();
       itemCount = itemCount + 1;
+      clothingWorldItems[itemCount] = cachedWorldObject;
     end
   end
 
@@ -176,6 +179,7 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
       if not clothingItems[worldInventoryItem] and (inventoryItem:IsClothing() or DelranUtils.IsBackpack(inventoryItem)) then
         clothingItems[worldInventoryItem] = inventoryItem:getName();
         itemCount = itemCount + 1;
+        clothingWorldItems[itemCount] = worldInventoryItem;
       end
     end
   end
@@ -191,6 +195,12 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
       local option = context:insertOptionAfter(getText("ContextMenu_Grab"), "Wear " .. itemName, player, MoveToAndWear,
         uniqueWorldClothingItem);
       DoWearClothingTooltip(uniqueWorldClothingItem, player, option);
+      option.itemForTexture = uniqueWorldClothingItem:getItem()
+      option.onHighlightParams = { uniqueWorldClothingItem }
+      option.onHighlight = function(_option, _menu, _isHighlighted, _object)
+        _object:setHighlighted(_menu.player, _isHighlighted, false)
+        ISInventoryPage.OnObjectHighlighted(_menu.player, _object, _isHighlighted)
+      end
       break;
     end
   else
@@ -199,12 +209,29 @@ function DrawWearWorldItemMenu(playerNum, context, worldObjects)
 
     local wearAllOption = subMenu:addOption('Wear all', player, WearAll, clothingItems);
     local wearAllOptionTooltip = ISInventoryPaneContextMenu.addToolTip();
+
+    wearAllOption.onHighlightParams = { clothingWorldItems };
+    wearAllOption.onHighlight = function(_option, _menu, _isHighlighted, _objects)
+      dprint(_objects)
+      for _, object in ipairs(_objects) do
+        dprint("iteration")
+        object:setHighlighted(_menu.player, _isHighlighted, false)
+        ISInventoryPage.OnObjectHighlighted(_menu.player, object, _isHighlighted)
+      end
+    end
+
     for worldItem, itemName in pairs(clothingItems) do
       local option = subMenu:addOption(itemName, player, MoveToAndWear, worldItem);
       DoWearClothingTooltip(worldItem, player, option);
       if option.toolTip then
         wearAllOptionTooltip.description = string.format("%s %s %s %s %s", wearAllOptionTooltip.description, "<TEXT>",
           itemName, "<LINE>", option.toolTip.description);
+      end
+      option.itemForTexture = worldItem:getItem()
+      option.onHighlightParams = { worldItem }
+      option.onHighlight = function(_option, _menu, _isHighlighted, _object)
+        _object:setHighlighted(_menu.player, _isHighlighted, false)
+        ISInventoryPage.OnObjectHighlighted(_menu.player, _object, _isHighlighted)
       end
     end
     wearAllOption.toolTip = wearAllOptionTooltip;
